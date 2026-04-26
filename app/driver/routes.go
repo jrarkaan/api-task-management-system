@@ -11,8 +11,9 @@ func (d *Driver) RegisterRoutes() {
 		ctx.JSON(http.StatusOK, gin.H{"message": "ok"})
 	})
 
-	api := d.router.Group("/api")
+	apiAccount := d.router.Group("/accounts")
+	apiTasks := d.router.Group("/tasks")
 
-	d.registerAccountRoutes(api)
-	d.registerTaskRoutes(api)
+	d.registerAccountRoutes(apiAccount)
+	d.registerTaskRoutes(apiTasks)
 }

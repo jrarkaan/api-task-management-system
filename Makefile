@@ -9,7 +9,7 @@ VERSION ?= 1
 .PHONY: run build tidy migrate-up migrate-down migrate-force docker-up docker-down docker-logs
 
 run:
-	go run ./cmd/http
+	nodemon --exec go run cmd/http/main.go --signal SIGTERM
 
 build:
 	go build ./cmd/http

@@ -7,7 +7,7 @@ import (
 )
 
 func registerAuthRoutes(router *gin.RouterGroup, authDelivery *deliveries.AuthDelivery) {
-	auth := router.Group("/auth")
+	auth := router.Group("/v1/auth")
 	auth.POST("/register", authDelivery.Register)
 	auth.POST("/login", authDelivery.Login)
 }
