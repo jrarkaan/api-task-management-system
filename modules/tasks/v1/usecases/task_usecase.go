@@ -15,6 +15,7 @@ import (
 	"api-task-management-system/modules/tasks/v1/repositories"
 	dbpkg "api-task-management-system/pkg/db"
 	"api-task-management-system/pkg/helpers"
+	"api-task-management-system/pkg/pagination"
 )
 
 type TaskUsecase struct {
@@ -35,17 +36,21 @@ func NewTaskUsecase(taskRepository *repositories.TaskRepository, txManager *dbpk
 	}
 }
 
-func (u *TaskUsecase) List(ctx context.Context, userID uint64, status string) ([]tasks.TaskResponse, error) {
+func (u *TaskUsecase) List(ctx context.Context, userID uint64, status string, page int, limit int) ([]tasks.TaskResponse, pagination.Pagination, error) {
+	page, limit = pagination.Normalize(page, limit)
+
 	if status != "" && !tasks.IsValidStatus(status) {
-		return nil, taskErrors.ErrInvalidStatus
+		return nil, pagination.Pagination{}, taskErrors.ErrInvalidStatus
 	}
 
-	taskList, err := u.taskRepository.ListByUser(ctx, nil, userID, status)
+	taskList, totalRows, err := u.taskRepository.ListByUser(ctx, nil, userID, status, page, limit)
 	if err != nil {
-		return nil, err
+		return nil, pagination.Pagination{}, err
 	}
 
-	return tasks.NewTaskResponses(taskList), nil
+	meta := pagination.BuildMeta(page, limit, totalRows)
+
+	return tasks.NewTaskResponses(taskList), meta, nil
 }
 
 func (u *TaskUsecase) Create(ctx context.Context, userID uint64, input tasks.CreateTaskInput) (*tasks.TaskResponse, error) {
@@ -83,9 +88,13 @@ func (u *TaskUsecase) Update(ctx context.Context, userID uint64, taskID string, 
 		return nil, taskErrors.ErrTaskNotFound
 	}
 
-	deadline, err := parseDeadline(input.Deadline)
-	if err != nil {
-		return nil, err
+	var deadline *time.Time
+	if input.Deadline != nil {
+		var err error
+		deadline, err = parseDeadline(*input.Deadline)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	var task *tasks.Task
@@ -100,12 +109,16 @@ func (u *TaskUsecase) Update(ctx context.Context, userID uint64, taskID string, 
 			return err
 		}
 
-		task.Title = strings.TrimSpace(input.Title)
-		task.Description = nullableString(input.Description)
-		if input.Status != "" {
-			task.Status = input.Status
+		if input.Title != nil {
+			task.Title = strings.TrimSpace(*input.Title)
 		}
-		if input.Deadline != "" {
+		if input.Description != nil {
+			task.Description = input.Description
+		}
+		if input.Status != nil {
+			task.Status = *input.Status
+		}
+		if input.Deadline != nil {
 			task.Deadline = deadline
 		}
 

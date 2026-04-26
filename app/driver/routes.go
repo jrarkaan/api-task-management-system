@@ -12,7 +12,7 @@ func (d *Driver) RegisterRoutes() {
 	})
 
 	apiAccount := d.router.Group("/accounts")
-	apiTasks := d.router.Group("/tasks")
+	apiTasks := d.router.Group("")
 
 	d.registerAccountRoutes(apiAccount)
 	d.registerTaskRoutes(apiTasks)

@@ -97,6 +97,8 @@ If you run migrations from your host machine, keep `DB_MIGRATE_URL=postgres://po
 - `GET /api/tasks?status=pending`
 - `GET /api/tasks?status=in-progress`
 - `GET /api/tasks?status=done`
+- `GET /api/tasks?page=1&limit=10`
+- `GET /api/tasks?status=pending&page=1&limit=10`
 - `POST /api/tasks`
 - `PUT /api/tasks/:id`
 - `DELETE /api/tasks/:id`
@@ -188,13 +190,60 @@ curl "http://localhost:8080/api/tasks?status=in-progress" \
   -H "Authorization: Bearer <token>"
 ```
 
-Update task:
+List tasks with pagination:
+
+```bash
+curl "http://localhost:8080/api/tasks?page=1&limit=10" \
+  -H "Authorization: Bearer <token>"
+```
+
+Update only status:
 
 ```bash
 curl -X PUT http://localhost:8080/api/tasks/<task_uuid> \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer <token>" \
-  -d '{"title":"Write test API","description":"Update docs and code","status":"done","deadline":"2026-05-02"}'
+  -d '{"status":"done"}'
+```
+
+Update only title:
+
+```bash
+curl -X PUT http://localhost:8080/api/tasks/<task_uuid> \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <token>" \
+  -d '{"title":"New title"}'
+```
+
+Update title and deadline:
+
+```bash
+curl -X PUT http://localhost:8080/api/tasks/<task_uuid> \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <token>" \
+  -d '{"title":"Submit technical test","deadline":"2026-04-30"}'
+```
+
+Invalid empty body:
+
+```bash
+curl -X PUT http://localhost:8080/api/tasks/<task_uuid> \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <token>" \
+  -d '{}'
+```
+
+Expected response for invalid empty body:
+```json
+{
+  "message": "",
+  "status": 0,
+  "error": {
+    "code": 400,
+    "message": "at least one field must be provided",
+    "status": true
+  }
+}
 ```
 
 Delete task:

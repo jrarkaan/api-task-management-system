@@ -44,7 +44,7 @@ func (d *TaskDelivery) List(ctx *gin.Context) {
 		return
 	}
 
-	response, err := d.taskUsecase.List(ctx.Request.Context(), userID, query.Status)
+	response, meta, err := d.taskUsecase.List(ctx.Request.Context(), userID, query.Status, query.Page, query.Limit)
 	if err != nil {
 		if stderrors.Is(err, taskErrors.ErrInvalidStatus) {
 			logger.Warn("task list invalid status", zap.Error(err), zap.Uint64("user_id", userID))
@@ -57,7 +57,7 @@ func (d *TaskDelivery) List(ctx *gin.Context) {
 		return
 	}
 
-	apiresponse.Success(ctx, nil, response)
+	apiresponse.Success(ctx, meta, response)
 }
 
 func (d *TaskDelivery) Create(ctx *gin.Context) {
@@ -102,6 +102,12 @@ func (d *TaskDelivery) Update(ctx *gin.Context) {
 	if err := xvalidator.Validate(input); err != nil {
 		logger.Warn("update task validation failed", zap.Error(err))
 		apiresponse.BadRequest(ctx, err.Error())
+		return
+	}
+
+	if !input.HasUpdateFields() {
+		logger.Warn("update task missing fields")
+		apiresponse.BadRequest(ctx, "at least one field must be provided")
 		return
 	}
 

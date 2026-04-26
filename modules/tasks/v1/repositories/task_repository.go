@@ -9,6 +9,7 @@ import (
 	"gorm.io/gorm"
 
 	"api-task-management-system/modules/tasks/v1/models/tasks"
+	"api-task-management-system/pkg/pagination"
 )
 
 type TaskRepository struct {
@@ -52,16 +53,32 @@ func (r *TaskRepository) Create(ctx context.Context, tx *gorm.DB, task *tasks.Ta
 	return nil
 }
 
-func (r *TaskRepository) ListByUser(ctx context.Context, tx *gorm.DB, userID uint64, status string) ([]tasks.Task, error) {
+func (r *TaskRepository) ListByUser(ctx context.Context, tx *gorm.DB, userID uint64, status string, page int, limit int) ([]tasks.Task, int64, error) {
 	db := r.getDB(tx).WithContext(ctx)
 
 	var taskList []tasks.Task
-	query := db.Where("user_id = ?", userID)
+	baseQuery := db.Model(&tasks.Task{}).Where("user_id = ?", userID)
 	if status != "" {
-		query = query.Where("status = ?", status)
+		baseQuery = baseQuery.Where("status = ?", status)
 	}
 
-	err := query.Order("created_at DESC").Find(&taskList).Error
+	var totalRows int64
+	if err := baseQuery.Count(&totalRows).Error; err != nil {
+		r.logger.Error(
+			"failed to count tasks",
+			zap.Uint64("user_id", userID),
+			zap.String("status", status),
+			zap.Error(err),
+		)
+		return nil, 0, err
+	}
+
+	err := baseQuery.
+		Order("created_at DESC").
+		Limit(limit).
+		Offset(pagination.Offset(page, limit)).
+		Find(&taskList).Error
+
 	if err != nil {
 		r.logger.Error(
 			"failed to list tasks",
@@ -69,9 +86,10 @@ func (r *TaskRepository) ListByUser(ctx context.Context, tx *gorm.DB, userID uin
 			zap.String("status", status),
 			zap.Error(err),
 		)
+		return nil, 0, err
 	}
 
-	return taskList, err
+	return taskList, totalRows, nil
 }
 
 func (r *TaskRepository) FindByUUIDAndUser(ctx context.Context, tx *gorm.DB, taskUUID uuid.UUID, userID uint64) (*tasks.Task, error) {

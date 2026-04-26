@@ -22,7 +22,8 @@ func Init(env string) {
 	case "production":
 		log, err = zap.NewProduction()
 	default:
-		log, err = zap.NewDevelopment()
+		cfg := zap.NewDevelopmentConfig()
+		log, err = cfg.Build(zap.AddStacktrace(zap.ErrorLevel))
 	}
 
 	if err != nil {
