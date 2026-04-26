@@ -6,12 +6,14 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"go.uber.org/zap"
 	"gorm.io/gorm"
 
 	taskErrors "api-task-management-system/modules/tasks/v1/errors"
 	"api-task-management-system/modules/tasks/v1/models/tasks"
 	"api-task-management-system/modules/tasks/v1/repositories"
 	"api-task-management-system/pkg/helpers"
+	"api-task-management-system/pkg/logger"
 )
 
 type TaskUsecase struct {
@@ -29,6 +31,7 @@ func (u *TaskUsecase) List(userID uint64, status string) ([]tasks.TaskResponse, 
 
 	taskList, err := u.taskRepository.ListByUser(userID, status)
 	if err != nil {
+		logger.Error("failed to list tasks", zap.Error(err), zap.Uint64("user_id", userID))
 		return nil, err
 	}
 
@@ -57,6 +60,7 @@ func (u *TaskUsecase) Create(userID uint64, input tasks.CreateTaskInput) (*tasks
 	}
 
 	if err := u.taskRepository.Create(&task); err != nil {
+		logger.Error("failed to create task", zap.Error(err), zap.Uint64("user_id", userID))
 		return nil, err
 	}
 
@@ -76,6 +80,7 @@ func (u *TaskUsecase) Update(userID uint64, taskID string, input tasks.UpdateTas
 			return nil, taskErrors.ErrTaskNotFound
 		}
 
+		logger.Error("failed to find task for update", zap.Error(err), zap.String("task_id", taskID), zap.Uint64("user_id", userID))
 		return nil, err
 	}
 
@@ -94,6 +99,7 @@ func (u *TaskUsecase) Update(userID uint64, taskID string, input tasks.UpdateTas
 	}
 
 	if err := u.taskRepository.Update(task); err != nil {
+		logger.Error("failed to update task", zap.Error(err), zap.String("task_id", taskID), zap.Uint64("user_id", userID))
 		return nil, err
 	}
 
@@ -113,10 +119,16 @@ func (u *TaskUsecase) Delete(userID uint64, taskID string) error {
 			return taskErrors.ErrTaskNotFound
 		}
 
+		logger.Error("failed to find task for delete", zap.Error(err), zap.String("task_id", taskID), zap.Uint64("user_id", userID))
 		return err
 	}
 
-	return u.taskRepository.Delete(task)
+	if err := u.taskRepository.Delete(task); err != nil {
+		logger.Error("failed to delete task", zap.Error(err), zap.String("task_id", taskID), zap.Uint64("user_id", userID))
+		return err
+	}
+
+	return nil
 }
 
 func parseDeadline(value string) (*time.Time, error) {

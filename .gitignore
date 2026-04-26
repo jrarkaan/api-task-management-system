@@ -7,3 +7,4 @@ coverage.out
 task-management-system
 cmd/http/http
 /http
+.codex

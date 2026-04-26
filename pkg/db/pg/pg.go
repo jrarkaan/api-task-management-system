@@ -6,9 +6,11 @@ import (
 	"time"
 
 	"api-task-management-system/app/config"
+	"api-task-management-system/pkg/logger"
+	"go.uber.org/zap"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
-	"gorm.io/gorm/logger"
+	gormlogger "gorm.io/gorm/logger"
 )
 
 var (
@@ -38,16 +40,18 @@ func InitDB(conf *config.Config) (*gorm.DB, error) {
 		)
 
 		db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{
-			Logger: logger.Default.LogMode(logger.Info),
+			Logger: gormlogger.Default.LogMode(gormlogger.Info),
 		})
 		if err != nil {
 			instanceErr = fmt.Errorf("gorm.Open: %w", err)
+			logger.Error("failed to open database connection", zap.Error(instanceErr))
 			return
 		}
 
 		sqlDB, err := db.DB()
 		if err != nil {
 			instanceErr = fmt.Errorf("db.DB: %w", err)
+			logger.Error("failed to get database sql instance", zap.Error(instanceErr))
 			return
 		}
 
@@ -58,10 +62,19 @@ func InitDB(conf *config.Config) (*gorm.DB, error) {
 
 		if err := sqlDB.Ping(); err != nil {
 			instanceErr = fmt.Errorf("db.Ping: %w", err)
+			logger.Error("failed to ping database", zap.Error(instanceErr))
 			return
 		}
 
 		instance = db
+		logger.Info(
+			"database connection initialized",
+			zap.String("host", conf.DBHost),
+			zap.String("port", conf.DBPort),
+			zap.String("database", conf.DBName),
+			zap.Int("max_open_conns", maxOpenConns),
+			zap.Int("max_idle_conns", maxIdleConns),
+		)
 	})
 
 	if instanceErr != nil {
