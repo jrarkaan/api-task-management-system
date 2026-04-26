@@ -17,6 +17,23 @@ services:
       timeout: 5s
       retries: 5
 
+  migrate:
+    image: migrate/migrate:v4.18.3
+    container_name: ${APP_NAME}_migrate
+    volumes:
+      - ./migrations:/migrations
+    command:
+      [
+        "-path",
+        "/migrations",
+        "-database",
+        "postgres://${DB_USER}:${DB_PASSWORD}@postgres:5432/${DB_NAME}?sslmode=${DB_SSLMODE}",
+        "up"
+      ]
+    depends_on:
+      postgres:
+        condition: service_healthy
+
   backend:
     build: .
     container_name: ${APP_NAME}_backend
@@ -27,6 +44,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
 
 volumes:
   postgres_data:

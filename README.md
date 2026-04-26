@@ -4,6 +4,51 @@ A simple RESTful backend API for a personal Task Management System. This project
 
 The backend is built with Go, Gin, GORM, PostgreSQL, golang-migrate, Zap logger, and Swagger/OpenAPI documentation.
 
+## Quick Start for Reviewer
+
+> No `.env` setup required — it is generated automatically.
+
+```bash
+make docker-start
+```
+
+This single command will:
+
+1. Auto-generate `.env` with Docker-friendly defaults (if it does not exist)
+2. Start PostgreSQL and wait for it to be healthy
+3. Run all database migrations
+4. Start the backend
+
+The API will be available at:
+
+```text
+http://localhost:8080
+```
+
+Swagger UI:
+
+```text
+http://localhost:8080/swagger/index.html
+```
+
+Health check:
+
+```bash
+curl http://localhost:8080/health
+```
+
+To stop and remove containers:
+
+```bash
+make docker-down
+```
+
+To wipe the database and start fresh:
+
+```bash
+make docker-reset
+```
+
 ## Tech Stack
 
 - Go 1.25
@@ -176,18 +221,13 @@ curl http://localhost:8080/health
 
 ## Run With Docker Compose
 
-Set Docker service values in `.env`:
-
-```env
-DB_HOST=postgres
-DB_MIGRATE_URL=postgres://postgres:postgres@postgres:5432/task_management_system?sslmode=disable
-```
-
-Then run:
+The easiest way to run the full stack (PostgreSQL + migrations + backend) in one command:
 
 ```bash
-make docker-up
+make docker-start
 ```
+
+`.env` is auto-generated if it does not exist. The generated file uses `DB_HOST=postgres` and a `DB_MIGRATE_URL` pointing to the `postgres` service, which are required for Docker Compose networking.
 
 View logs:
 
@@ -195,10 +235,22 @@ View logs:
 make docker-logs
 ```
 
-Stop containers:
+Stop containers (keep volumes):
 
 ```bash
 make docker-down
+```
+
+Stop containers and delete database data:
+
+```bash
+make docker-reset
+```
+
+Restart everything:
+
+```bash
+make docker-restart
 ```
 
 ## Database Migration
@@ -460,9 +512,24 @@ curl -X DELETE http://localhost:8080/tasks/<task_uuid> \
 
 ## Makefile Commands
 
+### Docker (Reviewer Workflow)
+
 | Command | Description |
 |---|---|
-| `make run` | Run API locally |
+| `make docker-start` | Auto-generate `.env`, run migrations, start backend |
+| `make docker-down` | Stop and remove containers (keep volumes) |
+| `make docker-reset` | Stop and remove containers **and** volumes (wipes DB) |
+| `make docker-stop` | Gracefully stop containers without removing them |
+| `make docker-restart` | `docker-down` then `docker-start` |
+| `make docker-logs` | Follow Docker Compose logs |
+| `make docker-up` | Start all services (build backend image) |
+
+### Local Development
+
+| Command | Description |
+|---|---|
+| `make env` | Auto-generate `.env` if it does not exist |
+| `make run` | Run API locally with nodemon hot-reload |
 | `make build` | Build application binary |
 | `make tidy` | Run `go mod tidy` |
 | `make swagger` | Generate Swagger docs |
@@ -470,9 +537,6 @@ curl -X DELETE http://localhost:8080/tasks/<task_uuid> \
 | `make migrate-up` | Apply database migrations |
 | `make migrate-down` | Rollback database migrations |
 | `make migrate-force VERSION=1` | Force migration version |
-| `make docker-up` | Start Docker Compose services |
-| `make docker-down` | Stop Docker Compose services |
-| `make docker-logs` | Follow Docker Compose logs |
 
 ## Notes
 

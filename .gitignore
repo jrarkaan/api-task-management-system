@@ -8,3 +8,4 @@ task-management-system
 cmd/http/http
 /http
 .codex
+.idea
