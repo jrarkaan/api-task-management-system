@@ -1,0 +1,9 @@
+.env
+bin/
+tmp/
+dist/
+coverage.out
+*.log
+task-management-system
+cmd/http/http
+/http
