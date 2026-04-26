@@ -4,12 +4,14 @@ export
 endif
 
 DB_MIGRATE_URL ?= postgres://postgres:postgres@localhost:5432/task_management_system?sslmode=disable
+PROD_COMPOSE=docker compose --env-file .env.production -f docker-compose.cloudflared.yml
 VERSION ?= 1
 
 .PHONY: run build tidy swagger swagger-fmt \
 	migrate-up migrate-down migrate-force \
 	env \
-	docker-up docker-start docker-stop docker-down docker-reset docker-restart docker-logs
+	docker-up docker-start docker-stop docker-down docker-reset docker-restart docker-logs \
+	prod-up prod-down prod-restart prod-logs prod-migrate prod-build
 
 # ─── Local Development ───────────────────────────────────────────────────────
 
@@ -89,3 +91,24 @@ docker-up:
 
 docker-logs:
 	docker compose logs -f
+
+# ─── Production (Cloudflare Tunnel) ──────────────────────────────────────────
+
+prod-up:
+	$(PROD_COMPOSE) up -d --build
+
+prod-down:
+	$(PROD_COMPOSE) down
+
+prod-restart:
+	$(PROD_COMPOSE) down
+	$(PROD_COMPOSE) up -d --build
+
+prod-logs:
+	$(PROD_COMPOSE) logs -f
+
+prod-migrate:
+	$(PROD_COMPOSE) run --rm migrate
+
+prod-build:
+	$(PROD_COMPOSE) build --no-cache backend

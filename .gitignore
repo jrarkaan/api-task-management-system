@@ -1,4 +1,5 @@
 .env
+.env.production
 bin/
 tmp/
 dist/

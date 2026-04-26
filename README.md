@@ -542,6 +542,68 @@ curl -X DELETE http://localhost:8080/tasks/<task_uuid> \
 | `make migrate-down` | Rollback database migrations |
 | `make migrate-force VERSION=1` | Force migration version |
 
+## Production Deployment (Cloudflare Tunnel)
+
+This project includes a separate production Docker Compose configuration that exposes the API publicly using [Cloudflare Tunnel](https://developers.cloudflare.com/cloudflare-one/connections/connect-apps/) — without opening any host ports.
+
+> **PostgreSQL is not exposed to the host** in production. The server already has another PostgreSQL instance using port 5432.
+> **Backend is not exposed to the host** in production. Public access is handled exclusively by Cloudflare Tunnel.
+
+### Cloudflare Dashboard Setup
+
+In the Cloudflare Zero Trust dashboard, configure your tunnel's public hostname to point to:
+
+```text
+http://backend:8080
+```
+
+### 1. Copy and fill the production environment file
+
+```bash
+cp .env.production.example .env.production
+```
+
+Edit `.env.production` and set strong values:
+
+| Variable | Description |
+|---|---|
+| `DB_PASSWORD` | Strong PostgreSQL password |
+| `JWT_SECRET` | Long random secret string |
+| `CLOUDFLARE_TUNNEL_TOKEN` | Token from Cloudflare Zero Trust dashboard |
+
+> `.env.production` is gitignored and will never be committed.
+
+### 2. Start production stack
+
+```bash
+make prod-up
+```
+
+This will build the backend image, start PostgreSQL, run migrations, start the backend, and launch `cloudflared`.
+
+### 3. Follow logs
+
+```bash
+make prod-logs
+```
+
+### 4. Stop production stack
+
+```bash
+make prod-down
+```
+
+### Production Makefile Commands
+
+| Command | Description |
+|---|---|
+| `make prod-up` | Build and start the full production stack |
+| `make prod-down` | Stop and remove production containers |
+| `make prod-restart` | Rebuild and restart the production stack |
+| `make prod-logs` | Follow production logs |
+| `make prod-migrate` | Run migrations against production database |
+| `make prod-build` | Rebuild only the backend image (no cache) |
+
 ## Notes
 
 - Task IDs in update and delete endpoints use task UUID.
