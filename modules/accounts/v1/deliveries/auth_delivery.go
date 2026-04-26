@@ -22,6 +22,18 @@ func NewAuthDelivery(authUsecase *usecases.AuthUsecase) *AuthDelivery {
 	return &AuthDelivery{authUsecase: authUsecase}
 }
 
+// Register godoc
+// @Summary      Register a new user
+// @Description  Creates a new user account and returns user details.
+// @Tags         Auth
+// @Accept       json
+// @Produce      json
+// @Param        request body users.RegisterInput true "Register details"
+// @Success      201  {object}  apiresponse.SwaggerSuccessResponse
+// @Failure      400  {object}  apiresponse.SwaggerErrorResponse
+// @Failure      409  {object}  apiresponse.SwaggerErrorResponse
+// @Failure      500  {object}  apiresponse.SwaggerErrorResponse
+// @Router       /accounts/v1/auth/register [post]
 func (d *AuthDelivery) Register(ctx *gin.Context) {
 	var input users.RegisterInput
 	if err := ctx.ShouldBindJSON(&input); err != nil {
@@ -52,6 +64,18 @@ func (d *AuthDelivery) Register(ctx *gin.Context) {
 	apiresponse.Created(ctx, nil, response, "Created successfully")
 }
 
+// Login godoc
+// @Summary      User login
+// @Description  Authenticates a user and returns a JWT token.
+// @Tags         Auth
+// @Accept       json
+// @Produce      json
+// @Param        request body users.LoginInput true "Login credentials"
+// @Success      200  {object}  apiresponse.SwaggerAuthLoginResponse
+// @Failure      400  {object}  apiresponse.SwaggerErrorResponse
+// @Failure      401  {object}  apiresponse.SwaggerErrorResponse
+// @Failure      500  {object}  apiresponse.SwaggerErrorResponse
+// @Router       /accounts/v1/auth/login [post]
 func (d *AuthDelivery) Login(ctx *gin.Context) {
 	var input users.LoginInput
 	if err := ctx.ShouldBindJSON(&input); err != nil {

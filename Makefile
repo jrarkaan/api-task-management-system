@@ -11,6 +11,12 @@ VERSION ?= 1
 run:
 	nodemon --exec go run cmd/http/main.go --signal SIGTERM
 
+swagger:
+	swag init -g cmd/http/main.go -o docs
+
+swagger-fmt:
+	swag fmt
+
 build:
 	go build ./cmd/http
 

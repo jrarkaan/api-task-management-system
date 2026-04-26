@@ -58,6 +58,31 @@ Make sure your Go binary path is available:
 export PATH="$PATH:$(go env GOPATH)/bin"
 ```
 
+## API Documentation
+
+The project includes an interactive Swagger API representation interface covering all routes natively.
+First, install the Swagger CLI tool if you haven't already:
+```bash
+go install github.com/swaggo/swag/cmd/swag@latest
+export PATH="$PATH:$(go env GOPATH)/bin"
+```
+
+Generate Swagger docs:
+```bash
+make swagger
+```
+
+Then, run the app:
+```bash
+make run
+```
+
+Open Swagger UI to browse the endpoints iteratively:
+http://localhost:8080/swagger/index.html
+
+For protected endpoints, click *Authorize* in Swagger UI and securely enter your token in the format:
+`Bearer <your_jwt_token>`
+
 ## Local Run
 
 ```bash
@@ -90,6 +115,8 @@ make docker-up
 If you run migrations from your host machine, keep `DB_MIGRATE_URL=postgres://postgres:postgres@localhost:5432/task_management_system?sslmode=disable`.
 
 ## API Endpoints
+
+Full interactive API documentation mapped with definitions is available natively in Swagger UI (http://localhost:8080/swagger/index.html).
 
 - `POST /api/auth/register`
 - `POST /api/auth/login`

@@ -1,0 +1,418 @@
+basePath: /
+definitions:
+  apiresponse.SwaggerAuthLoginResponse:
+    properties:
+      data:
+        $ref: '#/definitions/users.LoginResponse'
+      message:
+        type: string
+      meta: {}
+      status:
+        type: integer
+    type: object
+  apiresponse.SwaggerErrorResponse:
+    properties:
+      error:
+        $ref: '#/definitions/apiresponse.XError'
+      message:
+        type: string
+      status:
+        type: integer
+    type: object
+  apiresponse.SwaggerSuccessResponse:
+    properties:
+      data: {}
+      message:
+        type: string
+      meta: {}
+      status:
+        type: integer
+    type: object
+  apiresponse.SwaggerTaskListResponse:
+    properties:
+      data:
+        items:
+          $ref: '#/definitions/tasks.TaskResponse'
+        type: array
+      message:
+        type: string
+      meta:
+        $ref: '#/definitions/pagination.Pagination'
+      status:
+        type: integer
+    type: object
+  apiresponse.SwaggerTaskResponse:
+    properties:
+      data:
+        $ref: '#/definitions/tasks.TaskResponse'
+      message:
+        type: string
+      meta: {}
+      status:
+        type: integer
+    type: object
+  apiresponse.XError:
+    properties:
+      code:
+        type: integer
+      message:
+        type: string
+      status:
+        type: boolean
+    type: object
+  pagination.Pagination:
+    properties:
+      has_next:
+        type: boolean
+      has_prev:
+        type: boolean
+      limit:
+        type: integer
+      page:
+        type: integer
+      total_pages:
+        type: integer
+      total_rows:
+        type: integer
+    type: object
+  tasks.CreateTaskInput:
+    properties:
+      deadline:
+        type: string
+      description:
+        type: string
+      status:
+        enum:
+        - pending
+        - in-progress
+        - done
+        type: string
+      title:
+        type: string
+    required:
+    - title
+    type: object
+  tasks.TaskResponse:
+    properties:
+      created_at:
+        type: string
+      deadline:
+        type: string
+      description:
+        type: string
+      status:
+        type: string
+      title:
+        type: string
+      updated_at:
+        type: string
+      uuid:
+        type: string
+    type: object
+  tasks.UpdateTaskInput:
+    properties:
+      deadline:
+        type: string
+      description:
+        type: string
+      status:
+        enum:
+        - pending
+        - in-progress
+        - done
+        type: string
+      title:
+        minLength: 1
+        type: string
+    type: object
+  users.LoginInput:
+    properties:
+      email:
+        type: string
+      password:
+        type: string
+    required:
+    - email
+    - password
+    type: object
+  users.LoginResponse:
+    properties:
+      token:
+        type: string
+      user:
+        $ref: '#/definitions/users.UserResponse'
+    type: object
+  users.RegisterInput:
+    properties:
+      email:
+        type: string
+      name:
+        type: string
+      password:
+        minLength: 6
+        type: string
+    required:
+    - email
+    - name
+    - password
+    type: object
+  users.UserResponse:
+    properties:
+      email:
+        type: string
+      name:
+        type: string
+      uuid:
+        type: string
+    type: object
+host: localhost:8080
+info:
+  contact:
+    email: support@example.com
+    name: API Support
+  description: REST API for user authentication and personal task management.
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+  termsOfService: http://swagger.io/terms/
+  title: Task Management System API
+  version: "1.0"
+paths:
+  /accounts/v1/auth/login:
+    post:
+      consumes:
+      - application/json
+      description: Authenticates a user and returns a JWT token.
+      parameters:
+      - description: Login credentials
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/users.LoginInput'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/apiresponse.SwaggerAuthLoginResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/apiresponse.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/apiresponse.SwaggerErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/apiresponse.SwaggerErrorResponse'
+      summary: User login
+      tags:
+      - Auth
+  /accounts/v1/auth/register:
+    post:
+      consumes:
+      - application/json
+      description: Creates a new user account and returns user details.
+      parameters:
+      - description: Register details
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/users.RegisterInput'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/apiresponse.SwaggerSuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/apiresponse.SwaggerErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/apiresponse.SwaggerErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/apiresponse.SwaggerErrorResponse'
+      summary: Register a new user
+      tags:
+      - Auth
+  /tasks:
+    get:
+      consumes:
+      - application/json
+      description: Get a list of user tasks with optional pagination and status filter.
+      parameters:
+      - description: Filter by status
+        enum:
+        - pending
+        - in-progress
+        - done
+        in: query
+        name: status
+        type: string
+      - default: 1
+        description: Page number
+        in: query
+        name: page
+        type: integer
+      - default: 10
+        description: Items per page (max 100)
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/apiresponse.SwaggerTaskListResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/apiresponse.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/apiresponse.SwaggerErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/apiresponse.SwaggerErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: List tasks
+      tags:
+      - Tasks
+    post:
+      consumes:
+      - application/json
+      description: Creates a task under the authenticated user.
+      parameters:
+      - description: Task creation details
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/tasks.CreateTaskInput'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/apiresponse.SwaggerTaskResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/apiresponse.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/apiresponse.SwaggerErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/apiresponse.SwaggerErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Create a new task
+      tags:
+      - Tasks
+  /tasks/{id}:
+    delete:
+      description: Deletes a given task belonging to the authenticated user.
+      parameters:
+      - description: Task UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/apiresponse.SwaggerSuccessResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/apiresponse.SwaggerErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/apiresponse.SwaggerErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/apiresponse.SwaggerErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Delete a task
+      tags:
+      - Tasks
+    put:
+      consumes:
+      - application/json
+      description: Partially updates a task's fields. At least one field must be provided.
+        Omitted fields are left unchanged.
+      parameters:
+      - description: Task UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Partial task update fields
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/tasks.UpdateTaskInput'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/apiresponse.SwaggerTaskResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/apiresponse.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/apiresponse.SwaggerErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/apiresponse.SwaggerErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/apiresponse.SwaggerErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Update an existing task
+      tags:
+      - Tasks
+schemes:
+- http
+securityDefinitions:
+  BearerAuth:
+    description: Type "Bearer" followed by a space and JWT token.
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"
