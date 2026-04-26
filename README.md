@@ -75,6 +75,10 @@ make docker-reset
 - Standardized API response format
 - SQL migrations using golang-migrate
 - Swagger UI documentation
+- CORS enabled for development with:
+  - Allowed origins: *
+  - Allowed methods: GET, POST, PUT, PATCH, DELETE, OPTIONS
+  - Authorization header supported
 
 ## Folder Structure
 

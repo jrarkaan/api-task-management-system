@@ -28,6 +28,7 @@ func New(db *gorm.DB, cfg config.Config) *Driver {
 
 	router := gin.New()
 	router.Use(middleware.Recovery())
+	router.Use(middleware.CORS())
 	router.Use(middleware.RequestLogger())
 
 	log := loggerpkg.GetLogger()
