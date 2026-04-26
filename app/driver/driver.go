@@ -9,13 +9,16 @@ import (
 
 	"api-task-management-system/app/config"
 	"api-task-management-system/app/middleware"
-	"api-task-management-system/pkg/logger"
+	dbpkg "api-task-management-system/pkg/db"
+	loggerpkg "api-task-management-system/pkg/logger"
 )
 
 type Driver struct {
-	router *gin.Engine
-	db     *gorm.DB
-	cfg    config.Config
+	router    *gin.Engine
+	db        *gorm.DB
+	cfg       config.Config
+	logger    *zap.Logger
+	txManager *dbpkg.TransactionManager
 }
 
 func New(db *gorm.DB, cfg config.Config) *Driver {
@@ -27,20 +30,25 @@ func New(db *gorm.DB, cfg config.Config) *Driver {
 	router.Use(middleware.Recovery())
 	router.Use(middleware.RequestLogger())
 
+	log := loggerpkg.GetLogger()
+	txManager := dbpkg.NewTransactionManager(db)
+
 	return &Driver{
-		router: router,
-		db:     db,
-		cfg:    cfg,
+		router:    router,
+		db:        db,
+		cfg:       cfg,
+		logger:    log,
+		txManager: txManager,
 	}
 }
 
 func (d *Driver) Run() error {
 	address := fmt.Sprintf(":%s", d.cfg.AppPort)
-	logger.Info("starting http server", zap.String("address", address))
+	loggerpkg.Info("starting http server", zap.String("address", address))
 
 	return d.router.Run(address)
 }
 
 func InitLogger(cfg config.Config) {
-	logger.Init(cfg.AppEnv)
+	loggerpkg.Init(cfg.AppEnv)
 }

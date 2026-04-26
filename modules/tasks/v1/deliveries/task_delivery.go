@@ -44,7 +44,7 @@ func (d *TaskDelivery) List(ctx *gin.Context) {
 		return
 	}
 
-	response, err := d.taskUsecase.List(userID, query.Status)
+	response, err := d.taskUsecase.List(ctx.Request.Context(), userID, query.Status)
 	if err != nil {
 		if stderrors.Is(err, taskErrors.ErrInvalidStatus) {
 			logger.Warn("task list invalid status", zap.Error(err), zap.Uint64("user_id", userID))
@@ -81,7 +81,7 @@ func (d *TaskDelivery) Create(ctx *gin.Context) {
 		return
 	}
 
-	response, err := d.taskUsecase.Create(userID, input)
+	response, err := d.taskUsecase.Create(ctx.Request.Context(), userID, input)
 	if err != nil {
 		logger.Error("create task failed", zap.Error(err), zap.Uint64("user_id", userID))
 		apiresponse.ServerError(ctx, err.Error())
@@ -112,7 +112,7 @@ func (d *TaskDelivery) Update(ctx *gin.Context) {
 		return
 	}
 
-	response, err := d.taskUsecase.Update(userID, ctx.Param("id"), input)
+	response, err := d.taskUsecase.Update(ctx.Request.Context(), userID, ctx.Param("id"), input)
 	if err != nil {
 		if stderrors.Is(err, taskErrors.ErrTaskNotFound) {
 			logger.Warn("task update not found", zap.String("task_id", ctx.Param("id")), zap.Uint64("user_id", userID))
@@ -136,7 +136,7 @@ func (d *TaskDelivery) Delete(ctx *gin.Context) {
 		return
 	}
 
-	if err := d.taskUsecase.Delete(userID, ctx.Param("id")); err != nil {
+	if err := d.taskUsecase.Delete(ctx.Request.Context(), userID, ctx.Param("id")); err != nil {
 		if stderrors.Is(err, taskErrors.ErrTaskNotFound) {
 			logger.Warn("task delete not found", zap.String("task_id", ctx.Param("id")), zap.Uint64("user_id", userID))
 			apiresponse.NotFound(ctx, nil, err.Error())

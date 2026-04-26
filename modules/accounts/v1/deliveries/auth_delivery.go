@@ -36,7 +36,7 @@ func (d *AuthDelivery) Register(ctx *gin.Context) {
 		return
 	}
 
-	response, err := d.authUsecase.Register(input)
+	response, err := d.authUsecase.Register(ctx.Request.Context(), input)
 	if err != nil {
 		if stderrors.Is(err, accountErrors.ErrEmailAlreadyExists) {
 			logger.Warn("register conflict", zap.Error(err))
@@ -66,7 +66,7 @@ func (d *AuthDelivery) Login(ctx *gin.Context) {
 		return
 	}
 
-	response, err := d.authUsecase.Login(input)
+	response, err := d.authUsecase.Login(ctx.Request.Context(), input)
 	if err != nil {
 		if stderrors.Is(err, accountErrors.ErrInvalidCredentials) {
 			logger.Warn("login unauthorized", zap.Error(err))

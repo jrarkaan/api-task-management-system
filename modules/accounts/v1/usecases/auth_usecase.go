@@ -1,6 +1,7 @@
 package usecases
 
 import (
+	"context"
 	stderrors "errors"
 	"strings"
 
@@ -10,39 +11,38 @@ import (
 	accountErrors "api-task-management-system/modules/accounts/v1/errors"
 	"api-task-management-system/modules/accounts/v1/models/users"
 	"api-task-management-system/modules/accounts/v1/repositories"
+	dbpkg "api-task-management-system/pkg/db"
 	"api-task-management-system/pkg/helpers"
-	"api-task-management-system/pkg/logger"
 )
 
 type AuthUsecase struct {
 	userRepository *repositories.UserRepository
+	txManager      *dbpkg.TransactionManager
+	logger         *zap.Logger
 	jwtSecret      string
 	jwtExpiresHour int
 }
 
-func NewAuthUsecase(userRepository *repositories.UserRepository, jwtSecret string, jwtExpiresHour int) *AuthUsecase {
+func NewAuthUsecase(userRepository *repositories.UserRepository, txManager *dbpkg.TransactionManager, logger *zap.Logger, jwtSecret string, jwtExpiresHour int) *AuthUsecase {
+	if logger == nil {
+		logger = zap.NewNop()
+	}
+
 	return &AuthUsecase{
 		userRepository: userRepository,
+		txManager:      txManager,
+		logger:         logger,
 		jwtSecret:      jwtSecret,
 		jwtExpiresHour: jwtExpiresHour,
 	}
 }
 
-func (u *AuthUsecase) Register(input users.RegisterInput) (*users.UserResponse, error) {
+func (u *AuthUsecase) Register(ctx context.Context, input users.RegisterInput) (*users.UserResponse, error) {
 	email := strings.ToLower(strings.TrimSpace(input.Email))
-
-	existingUser, err := u.userRepository.FindByEmail(email)
-	if err != nil && !stderrors.Is(err, gorm.ErrRecordNotFound) {
-		logger.Error("failed to find user by email during register", zap.Error(err))
-		return nil, err
-	}
-	if existingUser != nil {
-		return nil, accountErrors.ErrEmailAlreadyExists
-	}
 
 	passwordHash, err := helpers.HashPassword(input.Password)
 	if err != nil {
-		logger.Error("failed to hash password", zap.Error(err))
+		u.logger.Error("failed to hash password", zap.Error(err))
 		return nil, err
 	}
 
@@ -53,25 +53,41 @@ func (u *AuthUsecase) Register(input users.RegisterInput) (*users.UserResponse, 
 		PasswordHash: passwordHash,
 	}
 
-	if err := u.userRepository.Create(&user); err != nil {
-		logger.Error("failed to create user", zap.Error(err))
-		return nil, err
+	run := func(tx *gorm.DB) error {
+		existingUser, err := u.userRepository.FindByEmail(ctx, tx, email)
+		if err != nil && !stderrors.Is(err, gorm.ErrRecordNotFound) {
+			return err
+		}
+		if existingUser != nil {
+			return accountErrors.ErrEmailAlreadyExists
+		}
+
+		return u.userRepository.Create(ctx, tx, &user)
+	}
+
+	if u.txManager != nil {
+		if err := u.txManager.WithTransaction(ctx, run); err != nil {
+			return nil, err
+		}
+	} else {
+		if err := run(nil); err != nil {
+			return nil, err
+		}
 	}
 
 	response := users.NewUserResponse(&user)
 	return &response, nil
 }
 
-func (u *AuthUsecase) Login(input users.LoginInput) (*users.LoginResponse, error) {
+func (u *AuthUsecase) Login(ctx context.Context, input users.LoginInput) (*users.LoginResponse, error) {
 	email := strings.ToLower(strings.TrimSpace(input.Email))
 
-	user, err := u.userRepository.FindByEmail(email)
+	user, err := u.userRepository.FindByEmail(ctx, nil, email)
 	if err != nil {
 		if stderrors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, accountErrors.ErrInvalidCredentials
 		}
 
-		logger.Error("failed to find user by email during login", zap.Error(err))
 		return nil, err
 	}
 
@@ -81,7 +97,7 @@ func (u *AuthUsecase) Login(input users.LoginInput) (*users.LoginResponse, error
 
 	token, err := helpers.GenerateJWT(user.ID, u.jwtSecret, u.jwtExpiresHour)
 	if err != nil {
-		logger.Error("failed to generate jwt", zap.Error(err), zap.Uint64("user_id", user.ID))
+		u.logger.Error("failed to generate jwt", zap.Error(err), zap.Uint64("user_id", user.ID))
 		return nil, err
 	}
 

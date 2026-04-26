@@ -1,6 +1,7 @@
 package usecases
 
 import (
+	"context"
 	stderrors "errors"
 	"strings"
 	"time"
@@ -12,33 +13,42 @@ import (
 	taskErrors "api-task-management-system/modules/tasks/v1/errors"
 	"api-task-management-system/modules/tasks/v1/models/tasks"
 	"api-task-management-system/modules/tasks/v1/repositories"
+	dbpkg "api-task-management-system/pkg/db"
 	"api-task-management-system/pkg/helpers"
-	"api-task-management-system/pkg/logger"
 )
 
 type TaskUsecase struct {
 	taskRepository *repositories.TaskRepository
+	txManager      *dbpkg.TransactionManager
+	logger         *zap.Logger
 }
 
-func NewTaskUsecase(taskRepository *repositories.TaskRepository) *TaskUsecase {
-	return &TaskUsecase{taskRepository: taskRepository}
+func NewTaskUsecase(taskRepository *repositories.TaskRepository, txManager *dbpkg.TransactionManager, logger *zap.Logger) *TaskUsecase {
+	if logger == nil {
+		logger = zap.NewNop()
+	}
+
+	return &TaskUsecase{
+		taskRepository: taskRepository,
+		txManager:      txManager,
+		logger:         logger,
+	}
 }
 
-func (u *TaskUsecase) List(userID uint64, status string) ([]tasks.TaskResponse, error) {
+func (u *TaskUsecase) List(ctx context.Context, userID uint64, status string) ([]tasks.TaskResponse, error) {
 	if status != "" && !tasks.IsValidStatus(status) {
 		return nil, taskErrors.ErrInvalidStatus
 	}
 
-	taskList, err := u.taskRepository.ListByUser(userID, status)
+	taskList, err := u.taskRepository.ListByUser(ctx, nil, userID, status)
 	if err != nil {
-		logger.Error("failed to list tasks", zap.Error(err), zap.Uint64("user_id", userID))
 		return nil, err
 	}
 
 	return tasks.NewTaskResponses(taskList), nil
 }
 
-func (u *TaskUsecase) Create(userID uint64, input tasks.CreateTaskInput) (*tasks.TaskResponse, error) {
+func (u *TaskUsecase) Create(ctx context.Context, userID uint64, input tasks.CreateTaskInput) (*tasks.TaskResponse, error) {
 	deadline, err := parseDeadline(input.Deadline)
 	if err != nil {
 		return nil, err
@@ -59,8 +69,7 @@ func (u *TaskUsecase) Create(userID uint64, input tasks.CreateTaskInput) (*tasks
 		Deadline:    deadline,
 	}
 
-	if err := u.taskRepository.Create(&task); err != nil {
-		logger.Error("failed to create task", zap.Error(err), zap.Uint64("user_id", userID))
+	if err := u.taskRepository.Create(ctx, nil, &task); err != nil {
 		return nil, err
 	}
 
@@ -68,20 +77,10 @@ func (u *TaskUsecase) Create(userID uint64, input tasks.CreateTaskInput) (*tasks
 	return &response, nil
 }
 
-func (u *TaskUsecase) Update(userID uint64, taskID string, input tasks.UpdateTaskInput) (*tasks.TaskResponse, error) {
+func (u *TaskUsecase) Update(ctx context.Context, userID uint64, taskID string, input tasks.UpdateTaskInput) (*tasks.TaskResponse, error) {
 	taskUUID, err := uuid.Parse(taskID)
 	if err != nil {
 		return nil, taskErrors.ErrTaskNotFound
-	}
-
-	task, err := u.taskRepository.FindByUUIDAndUser(taskUUID, userID)
-	if err != nil {
-		if stderrors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, taskErrors.ErrTaskNotFound
-		}
-
-		logger.Error("failed to find task for update", zap.Error(err), zap.String("task_id", taskID), zap.Uint64("user_id", userID))
-		return nil, err
 	}
 
 	deadline, err := parseDeadline(input.Deadline)
@@ -89,46 +88,68 @@ func (u *TaskUsecase) Update(userID uint64, taskID string, input tasks.UpdateTas
 		return nil, err
 	}
 
-	task.Title = strings.TrimSpace(input.Title)
-	task.Description = nullableString(input.Description)
-	if input.Status != "" {
-		task.Status = input.Status
-	}
-	if input.Deadline != "" {
-		task.Deadline = deadline
+	var task *tasks.Task
+	run := func(tx *gorm.DB) error {
+		var err error
+		task, err = u.taskRepository.FindByUUIDAndUser(ctx, tx, taskUUID, userID)
+		if err != nil {
+			if stderrors.Is(err, gorm.ErrRecordNotFound) {
+				return taskErrors.ErrTaskNotFound
+			}
+
+			return err
+		}
+
+		task.Title = strings.TrimSpace(input.Title)
+		task.Description = nullableString(input.Description)
+		if input.Status != "" {
+			task.Status = input.Status
+		}
+		if input.Deadline != "" {
+			task.Deadline = deadline
+		}
+
+		return u.taskRepository.Update(ctx, tx, task)
 	}
 
-	if err := u.taskRepository.Update(task); err != nil {
-		logger.Error("failed to update task", zap.Error(err), zap.String("task_id", taskID), zap.Uint64("user_id", userID))
-		return nil, err
+	if u.txManager != nil {
+		if err := u.txManager.WithTransaction(ctx, run); err != nil {
+			return nil, err
+		}
+	} else {
+		if err := run(nil); err != nil {
+			return nil, err
+		}
 	}
 
 	response := tasks.NewTaskResponse(task)
 	return &response, nil
 }
 
-func (u *TaskUsecase) Delete(userID uint64, taskID string) error {
+func (u *TaskUsecase) Delete(ctx context.Context, userID uint64, taskID string) error {
 	taskUUID, err := uuid.Parse(taskID)
 	if err != nil {
 		return taskErrors.ErrTaskNotFound
 	}
 
-	task, err := u.taskRepository.FindByUUIDAndUser(taskUUID, userID)
-	if err != nil {
-		if stderrors.Is(err, gorm.ErrRecordNotFound) {
-			return taskErrors.ErrTaskNotFound
+	run := func(tx *gorm.DB) error {
+		task, err := u.taskRepository.FindByUUIDAndUser(ctx, tx, taskUUID, userID)
+		if err != nil {
+			if stderrors.Is(err, gorm.ErrRecordNotFound) {
+				return taskErrors.ErrTaskNotFound
+			}
+
+			return err
 		}
 
-		logger.Error("failed to find task for delete", zap.Error(err), zap.String("task_id", taskID), zap.Uint64("user_id", userID))
-		return err
+		return u.taskRepository.Delete(ctx, tx, task)
 	}
 
-	if err := u.taskRepository.Delete(task); err != nil {
-		logger.Error("failed to delete task", zap.Error(err), zap.String("task_id", taskID), zap.Uint64("user_id", userID))
-		return err
+	if u.txManager != nil {
+		return u.txManager.WithTransaction(ctx, run)
 	}
 
-	return nil
+	return run(nil)
 }
 
 func parseDeadline(value string) (*time.Time, error) {

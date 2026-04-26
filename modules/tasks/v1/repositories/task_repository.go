@@ -1,49 +1,132 @@
 package repositories
 
 import (
+	"context"
+	"errors"
+
 	"github.com/google/uuid"
+	"go.uber.org/zap"
 	"gorm.io/gorm"
 
 	"api-task-management-system/modules/tasks/v1/models/tasks"
 )
 
 type TaskRepository struct {
-	db *gorm.DB
+	db     *gorm.DB
+	logger *zap.Logger
 }
 
-func NewTaskRepository(db *gorm.DB) *TaskRepository {
-	return &TaskRepository{db: db}
+func NewTaskRepository(db *gorm.DB, logger *zap.Logger) *TaskRepository {
+	if logger == nil {
+		logger = zap.NewNop()
+	}
+
+	return &TaskRepository{
+		db:     db,
+		logger: logger,
+	}
 }
 
-func (r *TaskRepository) Create(task *tasks.Task) error {
-	return r.db.Create(task).Error
+func (r *TaskRepository) getDB(tx *gorm.DB) *gorm.DB {
+	if tx != nil {
+		return tx
+	}
+
+	return r.db
 }
 
-func (r *TaskRepository) ListByUser(userID uint64, status string) ([]tasks.Task, error) {
+func (r *TaskRepository) Create(ctx context.Context, tx *gorm.DB, task *tasks.Task) error {
+	db := r.getDB(tx).WithContext(ctx)
+
+	if err := db.Create(task).Error; err != nil {
+		r.logger.Error(
+			"failed to create task",
+			zap.String("uuid", task.UUID.String()),
+			zap.Uint64("user_id", task.UserID),
+			zap.String("status", task.Status),
+			zap.Error(err),
+		)
+		return err
+	}
+
+	return nil
+}
+
+func (r *TaskRepository) ListByUser(ctx context.Context, tx *gorm.DB, userID uint64, status string) ([]tasks.Task, error) {
+	db := r.getDB(tx).WithContext(ctx)
+
 	var taskList []tasks.Task
-	query := r.db.Where("user_id = ?", userID)
+	query := db.Where("user_id = ?", userID)
 	if status != "" {
 		query = query.Where("status = ?", status)
 	}
 
 	err := query.Order("created_at DESC").Find(&taskList).Error
+	if err != nil {
+		r.logger.Error(
+			"failed to list tasks",
+			zap.Uint64("user_id", userID),
+			zap.String("status", status),
+			zap.Error(err),
+		)
+	}
+
 	return taskList, err
 }
 
-func (r *TaskRepository) FindByUUIDAndUser(taskUUID uuid.UUID, userID uint64) (*tasks.Task, error) {
+func (r *TaskRepository) FindByUUIDAndUser(ctx context.Context, tx *gorm.DB, taskUUID uuid.UUID, userID uint64) (*tasks.Task, error) {
+	db := r.getDB(tx).WithContext(ctx)
+
 	var task tasks.Task
-	err := r.db.Where("uuid = ? AND user_id = ?", taskUUID, userID).First(&task).Error
+	err := db.Where("uuid = ? AND user_id = ?", taskUUID, userID).First(&task).Error
 	if err != nil {
+		if !errors.Is(err, gorm.ErrRecordNotFound) {
+			r.logger.Error(
+				"failed to find task by uuid and user",
+				zap.String("uuid", taskUUID.String()),
+				zap.Uint64("user_id", userID),
+				zap.Error(err),
+			)
+		}
+
 		return nil, err
 	}
 
 	return &task, nil
 }
 
-func (r *TaskRepository) Update(task *tasks.Task) error {
-	return r.db.Save(task).Error
+func (r *TaskRepository) Update(ctx context.Context, tx *gorm.DB, task *tasks.Task) error {
+	db := r.getDB(tx).WithContext(ctx)
+
+	if err := db.Save(task).Error; err != nil {
+		r.logger.Error(
+			"failed to update task",
+			zap.Uint64("task_id", task.ID),
+			zap.String("uuid", task.UUID.String()),
+			zap.Uint64("user_id", task.UserID),
+			zap.String("status", task.Status),
+			zap.Error(err),
+		)
+		return err
+	}
+
+	return nil
 }
 
-func (r *TaskRepository) Delete(task *tasks.Task) error {
-	return r.db.Delete(task).Error
+func (r *TaskRepository) Delete(ctx context.Context, tx *gorm.DB, task *tasks.Task) error {
+	db := r.getDB(tx).WithContext(ctx)
+
+	if err := db.Delete(task).Error; err != nil {
+		r.logger.Error(
+			"failed to delete task",
+			zap.Uint64("task_id", task.ID),
+			zap.String("uuid", task.UUID.String()),
+			zap.Uint64("user_id", task.UserID),
+			zap.String("status", task.Status),
+			zap.Error(err),
+		)
+		return err
+	}
+
+	return nil
 }
