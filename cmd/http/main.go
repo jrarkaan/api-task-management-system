@@ -5,13 +5,13 @@ import (
 
 	"api-task-management-system/app/config"
 	"api-task-management-system/app/driver"
-	"api-task-management-system/pkg/db"
+	db_pg "api-task-management-system/pkg/db/pg"
 )
 
 func main() {
 	cfg := config.Load()
 
-	database, err := db.NewPostgresConnection(cfg)
+	database, err := db_pg.InitDB(&cfg)
 	if err != nil {
 		log.Fatalf("failed to connect database: %v", err)
 	}

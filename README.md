@@ -23,7 +23,7 @@ app/middleware           Gin middleware
 modules/accounts/v1      Register and login module
 modules/tasks/v1         Task CRUD module
 pkg/apiresponse          Standard API response helpers
-pkg/db                   PostgreSQL connection
+pkg/db/pg                PostgreSQL connection
 pkg/helpers              JWT, password, and UUID helpers
 pkg/xvalidator           Request validation helper
 migrations               golang-migrate SQL files
